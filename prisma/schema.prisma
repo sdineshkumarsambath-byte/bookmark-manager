@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Folder {
+  id        Int        @id @default(autoincrement())
+  name      String
+  createdAt DateTime   @default(now())
+
+  bookmarks Bookmark[]
+}
+
+model Bookmark {
+  id          Int      @id @default(autoincrement())
+  title       String
+  url         String
+  tags        String[]
+  folderId    Int
+  createdAt   DateTime @default(now())
+
+  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([folderId])
+  @@index([title])
+}
