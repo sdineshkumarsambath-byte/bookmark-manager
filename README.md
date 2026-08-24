@@ -122,3 +122,67 @@ bookmark-manager/
 ├── prisma.config.ts
 ├── tsconfig.json
 └── README.md
+
+# GitHub Push Workflow
+
+This project is managed using Git and GitHub for version control.
+
+## 1. Check Git Status
+
+```bash
+git status
+```
+
+This command shows the current branch and modified files.
+
+## 2. Add the Changes
+
+```bash
+git add .
+```
+
+This stages all the modified and newly created files.
+
+## 3. Commit the Changes
+
+```bash
+git commit -m "Update bookmark manager project"
+```
+
+The commit stores the changes with a meaningful message.
+
+## 4. Push to GitHub
+
+```bash
+git push origin main
+```
+
+This pushes the committed changes from the local `main` branch to the GitHub repository.
+
+## 5. Verify on GitHub
+
+After pushing, open the GitHub repository and verify that the latest files and changes are available.
+
+### Repository
+
+`bookmark-manager`
+
+### Branch
+
+`main`
+
+### Push Workflow
+
+```text
+Make Changes
+     ↓
+git status
+     ↓
+git add .
+     ↓
+git commit -m "message"
+     ↓
+git push origin main
+     ↓
+GitHub
+```
