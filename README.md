@@ -82,7 +82,7 @@ Application errors use GraphQL errors with specific error codes such as:
 | Prisma | ORM and database access |
 | PostgreSQL | Relational database |
 | Docker | Local PostgreSQL environment |
-| Git | Version control |
+| Git |
 
 ---
 
@@ -186,3 +186,25 @@ git push origin main
      ↓
 GitHub
 ```
+
+Docker
+--
+
+“In this project, I used Docker to run PostgreSQL as a containerized database. I defined the PostgreSQL configuration in docker-compose.yml. I used the following commands to start and manage the database.”
+
+docker compose up -d
+----------------------
+
+“This starts the PostgreSQL container in detached mode.”
+
+docker ps
+-----------
+
+“This verifies that the PostgreSQL container is running.”
+
+docker compose down
+----------------------
+
+“This stops and removes the running container.”
+
+“After PostgreSQL is running, Prisma connects my application to the database using the configured database URL.”

@@ -21,6 +21,11 @@ type BookmarkConnection {
   hasNextPage: Boolean!
 }
 
+type ErrorTestResult {
+  code: String!
+  message: String!
+}
+
 input CreateFolderInput {
   name: String!
 }
@@ -40,19 +45,59 @@ input UpdateBookmarkInput {
 
 type Query {
   folders: [Folder!]!
+
   folder(id: Int!): Folder
+
   bookmarks(
     folderId: Int
     search: String
     take: Int
     cursor: Int
   ): BookmarkConnection!
+
+  testErrorHandling: [ErrorTestResult!]!
 }
 
 type Mutation {
-  createFolder(input: CreateFolderInput!): Folder!
-  createBookmark(input: CreateBookmarkInput!): Bookmark!
-  updateBookmark(id: Int!, input: UpdateBookmarkInput!): Bookmark!
-  deleteBookmark(id: Int!): Boolean!
-  moveBookmark(id: Int!, folderId: Int!): Bookmark!
+  createFolder(input: CreateFolderInput!): Folder
+
+  createBookmark(input: CreateBookmarkInput!): Bookmark
+
+  updateBookmark(
+    id: Int!
+    input: UpdateBookmarkInput!
+  ): Bookmark
+
+  deleteBookmark(id: Int!): Boolean
+
+  moveBookmark(
+    id: Int!
+    folderId: Int!
+  ): Bookmark
+}
+
+type ValidationError {
+  field: String!
+  code: String!
+  message: String!
+}
+
+type ValidationResult {
+  errors: [ValidationError!]!
+}
+
+type Mutation {
+  createFolder(input: CreateFolderInput!): Folder
+  createBookmark(input: CreateBookmarkInput!): Bookmark
+  updateBookmark(
+    id: Int!
+    input: UpdateBookmarkInput!
+  ): Bookmark
+  deleteBookmark(id: Int!): Boolean
+  moveBookmark(
+    id: Int!
+    folderId: Int!
+  ): Bookmark
+
+  validateAllErrors: ValidationResult!
 }
