@@ -82,7 +82,7 @@ Application errors use GraphQL errors with specific error codes such as:
 | Prisma | ORM and database access |
 | PostgreSQL | Relational database |
 | Docker | Local PostgreSQL environment |
-| Git | Version control |
+| Git |
 
 ---
 
@@ -122,3 +122,89 @@ bookmark-manager/
 ├── prisma.config.ts
 ├── tsconfig.json
 └── README.md
+
+# GitHub Push Workflow
+
+This project is managed using Git and GitHub for version control.
+
+## 1. Check Git Status
+
+```bash
+git status
+```
+
+This command shows the current branch and modified files.
+
+## 2. Add the Changes
+
+```bash
+git add .
+```
+
+This stages all the modified and newly created files.
+
+## 3. Commit the Changes
+
+```bash
+git commit -m "Update bookmark manager project"
+```
+
+The commit stores the changes with a meaningful message.
+
+## 4. Push to GitHub
+
+```bash
+git push origin main
+```
+
+This pushes the committed changes from the local `main` branch to the GitHub repository.
+
+## 5. Verify on GitHub
+
+After pushing, open the GitHub repository and verify that the latest files and changes are available.
+
+### Repository
+
+`bookmark-manager`
+
+### Branch
+
+`main`
+
+### Push Workflow
+
+```text
+Make Changes
+     ↓
+git status
+     ↓
+git add .
+     ↓
+git commit -m "message"
+     ↓
+git push origin main
+     ↓
+GitHub
+```
+
+Docker
+--
+
+“In this project, I used Docker to run PostgreSQL as a containerized database. I defined the PostgreSQL configuration in docker-compose.yml. I used the following commands to start and manage the database.”
+
+docker compose up -d
+----------------------
+
+“This starts the PostgreSQL container in detached mode.”
+
+docker ps
+-----------
+
+“This verifies that the PostgreSQL container is running.”
+
+docker compose down
+----------------------
+
+“This stops and removes the running container.”
+
+“After PostgreSQL is running, Prisma connects my application to the database using the configured database URL.”

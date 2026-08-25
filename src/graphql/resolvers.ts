@@ -25,6 +25,23 @@ type BookmarksArgs = {
   cursor?: number | null;
 };
 
+/* =====================================================
+   VALIDATION FUNCTIONS
+===================================================== */
+
+function validateFolderName(name: string): string {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    throw appError(
+      "Folder name cannot be empty",
+      "INVALID_FOLDER_NAME",
+    );
+  }
+
+  return trimmedName;
+}
+
 function validateTitle(title: string): string {
   const trimmedTitle = title.trim();
 
@@ -53,8 +70,196 @@ function validateUrl(url: string): string {
   return trimmedUrl;
 }
 
+/* =====================================================
+   COLLECT ALL ERROR SCENARIOS
+===================================================== */
+
+async function collectValidationErrors() {
+  const errors: {
+    code: string;
+    message: string;
+  }[] = [];
+
+  /* ===================================================
+     1. INVALID_FOLDER_NAME
+  =================================================== */
+
+  try {
+    validateFolderName("");
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "INVALID_FOLDER_NAME",
+      message: error.message,
+    });
+  }
+
+  /* ===================================================
+     2. INVALID_BOOKMARK_TITLE
+  =================================================== */
+
+  try {
+    validateTitle("");
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "INVALID_BOOKMARK_TITLE",
+      message: error.message,
+    });
+  }
+
+  /* ===================================================
+     3. INVALID_BOOKMARK_URL
+  =================================================== */
+
+  try {
+    validateUrl("invalid-url");
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "INVALID_BOOKMARK_URL",
+      message: error.message,
+    });
+  }
+
+  /* ===================================================
+     4. NO_UPDATE_FIELDS
+  =================================================== */
+
+  try {
+    const data: {
+      title?: string;
+      url?: string;
+      tags?: string[];
+    } = {};
+
+    if (Object.keys(data).length === 0) {
+      throw appError(
+        "At least one field must be provided for update",
+        "NO_UPDATE_FIELDS",
+      );
+    }
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "NO_UPDATE_FIELDS",
+      message: error.message,
+    });
+  }
+
+  /* ===================================================
+     5. FOLDER_NOT_FOUND
+     DB-DEPENDENT VALIDATION
+  =================================================== */
+
+  try {
+    /*
+      Find the highest folder ID currently in the database.
+      Then use the next ID as a guaranteed non-existing ID.
+    */
+
+    const lastFolder =
+      await prisma.folder.findFirst({
+        orderBy: {
+          id: "desc",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    const invalidFolderId =
+      (lastFolder?.id ?? 0) + 1;
+
+    const folder =
+      await prisma.folder.findUnique({
+        where: {
+          id: invalidFolderId,
+        },
+      });
+
+    if (!folder) {
+      throw appError(
+        "Folder not found",
+        "FOLDER_NOT_FOUND",
+      );
+    }
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "FOLDER_NOT_FOUND",
+      message: error.message,
+    });
+  }
+
+  /* ===================================================
+     6. BOOKMARK_NOT_FOUND
+     DB-DEPENDENT VALIDATION
+  =================================================== */
+
+  try {
+    /*
+      Find the highest bookmark ID currently in the database.
+      Then use the next ID as a guaranteed non-existing ID.
+    */
+
+    const lastBookmark =
+      await prisma.bookmark.findFirst({
+        orderBy: {
+          id: "desc",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    const invalidBookmarkId =
+      (lastBookmark?.id ?? 0) + 1;
+
+    const bookmark =
+      await prisma.bookmark.findUnique({
+        where: {
+          id: invalidBookmarkId,
+        },
+      });
+
+    if (!bookmark) {
+      throw appError(
+        "Bookmark not found",
+        "BOOKMARK_NOT_FOUND",
+      );
+    }
+  } catch (error: any) {
+    errors.push({
+      code:
+        error.extensions?.code ??
+        "BOOKMARK_NOT_FOUND",
+      message: error.message,
+    });
+  }
+
+  return errors;
+}
+
+/* =====================================================
+   GRAPHQL RESOLVERS
+===================================================== */
+
 export const resolvers = {
+  /* ===================================================
+     QUERY
+  =================================================== */
+
   Query: {
+    /* -------------------------------------------------
+       GET ALL FOLDERS
+    ------------------------------------------------- */
+
     folders: async () => {
       return prisma.folder.findMany({
         orderBy: {
@@ -62,6 +267,10 @@ export const resolvers = {
         },
       });
     },
+
+    /* -------------------------------------------------
+       GET SINGLE FOLDER
+    ------------------------------------------------- */
 
     folder: async (
       _parent: unknown,
@@ -74,6 +283,11 @@ export const resolvers = {
       });
     },
 
+    /* -------------------------------------------------
+       GET BOOKMARKS
+       FILTER + SEARCH + CURSOR PAGINATION
+    ------------------------------------------------- */
+
     bookmarks: async (
       _parent: unknown,
       args: BookmarksArgs,
@@ -83,48 +297,52 @@ export const resolvers = {
         50,
       );
 
-      const bookmarks = await prisma.bookmark.findMany({
-        where: {
-          ...(args.folderId !== null &&
-          args.folderId !== undefined
-            ? {
-                folderId: args.folderId,
-              }
-            : {}),
+      const bookmarks =
+        await prisma.bookmark.findMany({
+          where: {
+            ...(args.folderId !== null &&
+            args.folderId !== undefined
+              ? {
+                  folderId: args.folderId,
+                }
+              : {}),
 
-          ...(args.search?.trim()
+            ...(args.search?.trim()
+              ? {
+                  title: {
+                    contains:
+                      args.search.trim(),
+                    mode: "insensitive",
+                  },
+                }
+              : {}),
+          },
+
+          orderBy: {
+            id: "asc",
+          },
+
+          take: take + 1,
+
+          ...(args.cursor
             ? {
-                title: {
-                  contains: args.search.trim(),
-                  mode: "insensitive",
+                skip: 1,
+                cursor: {
+                  id: args.cursor,
                 },
               }
             : {}),
-        },
+        });
 
-        orderBy: {
-          id: "asc",
-        },
-
-        take: take + 1,
-
-        ...(args.cursor
-          ? {
-              skip: 1,
-              cursor: {
-                id: args.cursor,
-              },
-            }
-          : {}),
-      });
-
-      const hasNextPage = bookmarks.length > take;
+      const hasNextPage =
+        bookmarks.length > take;
 
       const items = hasNextPage
         ? bookmarks.slice(0, take)
         : bookmarks;
 
-      const lastItem = items[items.length - 1];
+      const lastItem =
+        items[items.length - 1];
 
       const nextCursor =
         hasNextPage && lastItem
@@ -137,7 +355,19 @@ export const resolvers = {
         hasNextPage,
       };
     },
+
+    /* -------------------------------------------------
+       TEST ALL ERROR HANDLING
+    ------------------------------------------------- */
+
+    testErrorHandling: async () => {
+      return collectValidationErrors();
+    },
   },
+
+  /* ===================================================
+     FOLDER FIELD RESOLVER
+  =================================================== */
 
   Folder: {
     bookmarks: async (
@@ -154,6 +384,10 @@ export const resolvers = {
     },
   },
 
+  /* ===================================================
+     BOOKMARK FIELD RESOLVER
+  =================================================== */
+
   Bookmark: {
     folder: async (
       parent: { folderId: number },
@@ -166,19 +400,24 @@ export const resolvers = {
     },
   },
 
+  /* ===================================================
+     MUTATIONS
+  =================================================== */
+
   Mutation: {
+    /* -------------------------------------------------
+       CREATE FOLDER
+    ------------------------------------------------- */
+
     createFolder: async (
       _parent: unknown,
-      args: { input: CreateFolderInput },
+      args: {
+        input: CreateFolderInput;
+      },
     ) => {
-      const name = args.input.name.trim();
-
-      if (!name) {
-        throw appError(
-          "Folder name cannot be empty",
-          "INVALID_FOLDER_NAME",
-        );
-      }
+      const name = validateFolderName(
+        args.input.name,
+      );
 
       return prisma.folder.create({
         data: {
@@ -187,18 +426,30 @@ export const resolvers = {
       });
     },
 
+    /* -------------------------------------------------
+       CREATE BOOKMARK
+    ------------------------------------------------- */
+
     createBookmark: async (
       _parent: unknown,
-      args: { input: CreateBookmarkInput },
+      args: {
+        input: CreateBookmarkInput;
+      },
     ) => {
-      const title = validateTitle(args.input.title);
-      const url = validateUrl(args.input.url);
+      const title = validateTitle(
+        args.input.title,
+      );
 
-      const folder = await prisma.folder.findUnique({
-        where: {
-          id: args.input.folderId,
-        },
-      });
+      const url = validateUrl(
+        args.input.url,
+      );
+
+      const folder =
+        await prisma.folder.findUnique({
+          where: {
+            id: args.input.folderId,
+          },
+        });
 
       if (!folder) {
         throw appError(
@@ -217,7 +468,9 @@ export const resolvers = {
       });
     },
 
-
+    /* -------------------------------------------------
+       UPDATE BOOKMARK
+    ------------------------------------------------- */
 
     updateBookmark: async (
       _parent: unknown,
@@ -271,7 +524,9 @@ export const resolvers = {
         data.tags = args.input.tags;
       }
 
-      if (Object.keys(data).length === 0) {
+      if (
+        Object.keys(data).length === 0
+      ) {
         throw appError(
           "At least one field must be provided for update",
           "NO_UPDATE_FIELDS",
@@ -285,6 +540,10 @@ export const resolvers = {
         data,
       });
     },
+
+    /* -------------------------------------------------
+       DELETE BOOKMARK
+    ------------------------------------------------- */
 
     deleteBookmark: async (
       _parent: unknown,
@@ -312,6 +571,10 @@ export const resolvers = {
 
       return true;
     },
+
+    /* -------------------------------------------------
+       MOVE BOOKMARK
+    ------------------------------------------------- */
 
     moveBookmark: async (
       _parent: unknown,
